@@ -1,0 +1,92 @@
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin1
+      POSTGRES_DB: library
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+    networks:
+      - library_net
+  
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin2
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin  
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - library_net
+
+  books_service:
+    build: ./books_service
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:admin1@postgres:5432/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - library_net
+
+  users_service:
+    build: ./users_service
+    ports:
+      - "8005:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:admin1@postgres:5432/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - library_net
+
+  borrow_service:
+    build: ./borrow_service
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:admin1@postgres:5432/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - library_net
+
+  frontend:
+    build: ./frontend  
+    container_name: library-frontend
+    ports:
+      - "8082:80"  
+    depends_on:
+      - books_service   
+      - users_service   
+      - borrow_service  
+    networks:
+      - library_net
+
+volumes:
+  pgdata:
+  pgadmin_data:
+  
+networks:
+  library_net:
+    driver: bridge  
+
+
